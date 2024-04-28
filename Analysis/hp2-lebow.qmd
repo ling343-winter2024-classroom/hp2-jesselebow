@@ -100,15 +100,17 @@ mean_by_age_filtered <- df_eng_acquisition |>
   filter(L1_eng == 0 & eng_count >= 2) |>
   summarize(mean_score = mean(correct, NA.RM = TRUE))
 
-ggplot(mean_by_age, aes(x=age, y=mean_score)) +
+ggplot(mean_by_age_filtered, aes(x=age, y=mean_score)) +
   geom_point() +
   geom_line() +   
-  labs(title="Mean Test Scores by Age",
+  labs(title="Mean Test Scores by Age, Experienced L2 Learners",
        x="Age",
        y="Mean Test Score")
 ```
 
-These results are shockingly similar, particularly because there were many L1 English respondents. The last thing I want to try is considering percentage of life spent studying English. My idea is that, if there is any "second critical period" whatsoever, that there should be a wide gulf in learning outcomes for older speakers who have spent a low percentage of their lives learning English as 
+It seems to be around adolescence when L2 learners start being highly proficient. The curve is very steady from then on! Could this suggest that there might be some sort of "second critical period" that ends in the late teens, as that is when the graph seems to level off?
+
+The last thing I want to try is considering percentage of life spent studying English. My idea is that, if there is any "second critical period" whatsoever, that there should be a wide gulf in learning outcomes for older speakers who have spent a low percentage of their lives learning English as 
 opposed to younger speakers for whom this is true. We're going to indirectly plot density by coloring based on percentage of life spent learning English: 
 
 ```{r}
@@ -129,7 +131,7 @@ ggplot(df_eng_acquisition, aes(x = age, y = correct, color = percentage_life_spe
   theme_minimal()
 ```
 
-This isn't wholly better than the previous plots, but it does appear to substantiate predictions to a limited extent. L2 English learners who are much younger are primarily the ones to score highly on the assessment with a low percentage of life spent studying English. Even still, a careful examination reveals that the highest concentration of blue near 100% correctness is far older than I'd expect, seemingly around 30-40 years of age. Let's move on from this question.
+This isn't wholly better than the previous plots, but it does appear to substantiate predictions to a limited extent. L2 English learners who are much younger are primarily the ones (with a lower percentage of life spent studying English) to score highly on the assessment. Even still, a careful examination reveals that the highest concentration of blue near 100% correctness is far older than I'd expect, seemingly around 30-40 years of age. Let's move on from this question.
 
 ## Exploring Question 2: Correlations between L1 and L2 English success
 
