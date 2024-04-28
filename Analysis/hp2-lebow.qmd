@@ -1,0 +1,333 @@
+---
+title: "Homework Project 2"
+author: "Jesse LeBow"
+format:
+  html:
+    embed-resources: true
+---
+
+
+
+
+## The data
+The data in this report comes from Hartshorne, Tenenbaum, & Pinker (2018) - A Critical Period for Second Language Acquisition: Evidence from 2/3 Million English Speakers. 
+
+Nearly 700,000 L1 and non-L1 English speakers took part in this massive study, which used a sizable grammaticality judgment assessment and a multifaceted demographic survey to allow for the establishment of multiple correlations to L2 English learning success.
+
+I will be doing my own analysis of the data, with several questions in mind:
+
+1. How does age really affect L2 learning? Is there a "second critical period" beyond which acquiring an L2 becomes even more difficult? If so, a sharp drop-off in test scores would be expected. If not, a more gradual plateau and decline would be more likely.
+
+2. Are there any surprising correlations with measured L2 proficiency and L1s spoken? What about with how many L1s the speaker has?
+
+3. Is there a big difference between speaking English in the home and being completely immersed?
+
+4. What is the apparent effect of dyslexia on language learning? Does having a psychiatric disorder in general seem to matter?
+
+5. Do different English-speaking countries seem to have different learning outcomes?
+
+
+```{r}
+#| warning: false
+library(tidyverse)
+library(here)
+library(knitr)
+library(stringr)
+library(tidyr)
+```
+
+## Importing Data
+
+```{r}
+#unzip the csv file (too large to upload to GitHub directly)
+here::i_am("analysis/hp2-lebow.qmd")
+zip_file_path <- here::here("data/EnglishL2Acquisition.zip")
+unzip(zip_file_path, exdir = here::here("data"))
+df_eng_acquisition <- read.csv(here("data/EnglishL2Acquisition.csv"), 
+              skip = 0, sep = ",", comment.char = "#", strip.white = TRUE, col.names = c("id", "date", "time", "gender", "age", "L1s", "curr_langs", "dyslexia", "psychiatric", "education", "eng_start", "eng_count", "home_eng", "dictionary", "countries", "curr_country", "US_region", "UK_region", "CAN_region", "IR_region", "L1_eng", "curr_eng", "lived_eng_pct", "speaker_category", "correct"))
+```
+
+## Data Dictionary
+
+Age: The age of the participant at the time of the trial
+L1s: Participant's L1s
+Curr_langs: Participant's currently spoken languages
+Dyslexia: Whether or not the participant reported having dyslexia
+Psychiatric: Whether or not the participant reported any psychiatric disorders
+Eng_start: What age the participant started learning English
+Eng_count: The number of years the participant has lived in an English-speaking country
+Home_eng: Whether the participant lives with any native English speakers
+L1_eng: Whether the participant is an L1 English speaker
+Correct: Total percentage of correct responses to questions
+
+
+## Reformatting and handling missing values
+
+Not too much to clean here. Just for readability, let's multiply values in Correct by 100 so they're actual percentages.
+
+```{r}
+df_eng_acquisition <- df_eng_acquisition |>
+  mutate(correct = correct * 100)
+
+```
+
+There are a lot of NA and NULL values throughout the data, but there's nothing really to be done about them. Luckily, there's so much data that we can afford to just filter these rows out when we analyze.
+
+## Exploring Question 1: (Predicted) Decline in L2 learning ability
+
+We begin by plotting the average scores of all participants as a function of age.
+
+```{r}
+mean_by_age <- df_eng_acquisition |>
+  group_by(age) |>
+  summarize(mean_score = mean(correct, NA.RM = TRUE))
+
+ggplot(mean_by_age, aes(x=age, y=mean_score)) +
+  geom_point() +
+  geom_line() +   
+  labs(title="Mean Test Scores by Age",
+       x="Age",
+       y="Mean Test Score")
+```
+
+Wow! These results certainly are not what I expected to find. I'd say the sharp declines on both ends of the plot can be attributed largely to difficulty with tests. Mean scores climb steadily until peaking at 66, of all ages, which strongly indicates to me that time spent is still hugely important. Related to this, it would seem that the first critical period is far more directly observable than any hypothesized L2 critical period. However, I think there are a few improvements we can make to get a more accurate reading. I'm going to produce the same sort of plot, but tweak a few of the criteria.
+
+First, let's filter out L1 English speakers. Second, let's only consider respondents who have studied L2 English for AT LEAST two years. This is not an unreasonable number, but it should separate complete beginners from those who have had a substantial amount of time to learn.
+
+```{r}
+mean_by_age_filtered <- df_eng_acquisition |>
+  group_by(age) |>
+  filter(L1_eng == 0 & eng_count >= 2) |>
+  summarize(mean_score = mean(correct, NA.RM = TRUE))
+
+ggplot(mean_by_age_filtered, aes(x=age, y=mean_score)) +
+  geom_point() +
+  geom_line() +   
+  labs(title="Mean Test Scores by Age, Experienced L2 Learners",
+       x="Age",
+       y="Mean Test Score")
+```
+
+It seems to be around adolescence when L2 learners start being highly proficient. The curve is very steady from then on! Could this suggest that there might be some sort of "second critical period" that ends in the late teens, as that is when the graph seems to level off?
+
+The last thing I want to try is considering percentage of life spent studying English. My idea is that, if there is any "second critical period" whatsoever, that there should be a wide gulf in learning outcomes for older speakers who have spent a low percentage of their lives learning English as 
+opposed to younger speakers for whom this is true. We're going to indirectly plot density by coloring based on percentage of life spent learning English: 
+
+```{r}
+
+df_eng_acquisition <- df_eng_acquisition |>
+   mutate(percentage_life_spent = eng_count / age * 100) |>
+   filter(L1_eng == 0 & eng_count >= 1) |>
+   na.omit()
+
+
+ggplot(df_eng_acquisition, aes(x = age, y = correct, color = percentage_life_spent)) +
+  geom_point(alpha = 0.8) +  # Lower opacity to compensate for plot density
+  scale_color_gradient(low = "blue", high = "red") +  # Gradient based on percentage_life_spent
+  labs(title = "Proficiency vs. Age, Colored by Percentage of Life Studying English",
+       x = "Age",
+       y = "Proficiency Score",
+       color = "Percentage of Life Spent Studying English") +
+  theme_minimal()
+```
+
+This isn't wholly better than the previous plots, but it does appear to substantiate predictions to a limited extent. L2 English learners who are much younger are primarily the ones (with a lower percentage of life spent studying English) to score highly on the assessment. Even still, a careful examination reveals that the highest concentration of blue near 100% correctness is far older than I'd expect, seemingly around 30-40 years of age. Let's move on from this question.
+
+## Exploring Question 2: Correlations between L1 and L2 English success
+
+Let's visualize correctness score by reported L1. We create a new dataframe by first separating rows with multiple reported L1s so their results can count for each language, and then selecting only the rows with a "0" for L1 English.
+
+```{r}
+df_acq_separated <- df_eng_acquisition |>
+  separate_rows(L1s, sep = ",\\s*") |> #use comma as separator
+  filter(L1_eng == 0)
+
+#fix data for L1s reported as some variation of "Chinese/<Language>/<Language>" (for example, Chinese/Cantonese/Yue appears)
+df_acq_separated <- df_acq_separated |>
+  separate_rows(L1s, sep = "/") |> #don't need a regex whitespace check
+  filter(L1s != "Chinese") #remove the columns that now just say "Chinese"
+
+language_freqs <- df_acq_separated |>
+  group_by(L1s) |>
+  summarize(count = n()) |>
+  filter(count >= 1500) #I found languages with 1500+ participants to be the sweet spot for graphing
+  
+language_scores <- df_acq_separated |>
+  filter(L1s %in% language_freqs$L1s) |> #maybe there was a simpler way to do this, but it works and leaves the dataframe how I want it
+  group_by(L1s) |>
+  summarize(mean_pct = mean(correct, na.rm = TRUE))
+  
+language_scores |>
+  filter(L1s != "NULL") |> #this is a string called "NULL", not the value, as imported from the csv data I guess
+ggplot(aes(x = reorder(L1s, desc(mean_pct)), y = mean_pct, fill = L1s)) +
+  geom_col(show.legend = FALSE) +
+  coord_cartesian(ylim = c(80, 100)) + #start at 80 to emphasize discrepancies
+  scale_fill_viridis_d(option = "D") +  #I love this gradient
+  labs(title = "Average Score by Reported L1",
+       x = "L1",
+       y = "Average Score") +
+  theme_minimal() +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1))  # preferable for readability
+```
+
+I really like this visualization. There are subtle confounding elements in the data, which give me pause in my judgments. For example, as expected, Germanic languages dominate the high end of correctness, and while this is certainly owed in part to shared parentage, I know that it is also much more common to learn English from an early age in Scandinavian countries and in places like Germany and the Netherlands. 
+
+For a similar reason, I am not sure what to make of Turkish being so low. Hindi being second overall does surprise me, as well! I wasn't able to come up with a convincing theory as to why that would be, but I'm sure there is a sensible explanation. Overall, it would be hard to argue that no correlation exists here.
+
+
+## 3. In-home English vs. Full Exposure
+
+How much better is immersion in a language than just practicing it in the home? To find out, I'll create a new column with existing data. We want to contrast participants who only spoke English in the home with those that lived in an English-speaking country and did not use English in the home. For the first category, let's select participants with a 0 in home_eng and above 15% (arbitrarily set) for time spent in an English-speaking country. The second category would include those who have a 1 in home_eng and a 0 in lived_eng_pct.
+
+```{r}
+df_acq_home_immersion <- df_acq_separated |>
+  mutate(home_or_immersion = case_when(home_eng == "0" & lived_eng_pct >= .15 ~ 2, #assign 2 for "immersion" case
+  home_eng == "1" & lived_eng_pct == 0 ~ 1, #assign 1 for "home" case
+                          TRUE ~ 0)) #assign 0 for everyone else
+df_acq_home_only <- df_acq_home_immersion |>
+  filter(home_or_immersion == 1)  #filter out "everyone else" cases
+  
+```
+
+Actually, I tried to do this and found out that there are zero respondents who use English in the home but have never lived in an English-speaking country! Instead, then, let's see if there are any values that seem to be breaking points for time spent in English-speaking countries. We can do this both by comparing percentages of time spent against correctness as well as comparing number of years against correctness using some math.
+
+```{r}
+df_acq_separated <- df_acq_separated |>
+  mutate(lived_eng_pct = lived_eng_pct * 100) |>
+  mutate(
+    percentage_group = cut(lived_eng_pct, breaks = seq(0, 100, by = 10), include.lowest = TRUE, labels = paste(seq(0, 90, by = 10), seq(10, 100, by = 10), sep = "-")) #make labels 0-10, 10-20, etc
+  )
+
+grouped_scores <- df_acq_separated |>
+  group_by(percentage_group) |>
+  summarize(
+    average_correct = mean(correct, na.rm = TRUE))
+
+ggplot(grouped_scores, aes(x = percentage_group, y = average_correct, group = 1)) +
+  geom_line(color = "#f9debd", size = 1.2) +
+  geom_point(color = "#9797be", size = 3, shape = 21, fill = "#9797be") +  #I found out you can type these directly from color-hex.com!
+  labs(
+    x = "Percent Time in English-Speaking Country",
+    y = "Correctness Score",
+    caption = "Data aggregated by 10% intervals"
+  ) +
+  theme_minimal(base_size = 14) + 
+  theme(
+    axis.text.x = element_text(angle = 45, hjust = 1, vjust = 1),
+    #adjust x axis text spacing
+    legend.position = "none"
+  )
+
+```
+
+The biggest jump seems to be around the half-of-one's-life point. Let's now check if anything interesting is going on with total years spent.
+
+```{r}
+df_acq_separated <- df_acq_separated |>
+  mutate(years_eng = round((lived_eng_pct * age) / 100)) # divide by 100 since these are percentages, then round so grouping is possible
+
+new_grouped_scores <- df_acq_separated |>
+  group_by(years_eng) |>
+  summarize(
+    average_correct = mean(correct, na.rm = TRUE))
+
+ggplot(new_grouped_scores, aes(x = years_eng, y = average_correct, group = 1)) +
+  #messing around with manipulating sizes and choosing different shapes
+  geom_line(color = "#f9debd", size = 1.2) +
+  geom_point(color = "#9797be", size = 2, shape = 18, fill = "#9797be") +  #I wanted to use these colors again
+  labs(
+    x = "Years in English-Speaking Country",
+    y = "Correctness Score"
+  ) +
+  theme_minimal(base_size = 12) +  
+  theme(
+    axis.text.x = element_text(angle = 45, hjust = 1, vjust = 1),
+    legend.position = "none"
+  )
+```
+
+This relationship seems to largely be linear until 25 years or so, where it really levels off. It could just be that there are way fewer respondents who've lived 25+ years in an English-speaking country, but there is probably some truth to that leveling off.
+
+I would have expected it this to happen many years prior, though. This seems to imply that L2 English learning could continue fairly steadily even 20 years into one's residency in an English-speaking country, which would be a great result!
+
+
+## 4. Dyslexia and Psychiatric Disorders
+
+I don't want to go overboard with this, nor try to make any judgments about correlation or causation. But still, since the data was collected, it would be nice to see if anything stands out visually. It makes logical sense that dyslexia could interfere with language learning, but I have no idea how much impact it might have.
+
+Well... this was my plan, but then I found out that not a single row has "1" in the dyslexia column. I checked the CSV file and, sure enough, there wasn't a single 1. Disappointing! I don't know what happened to the data there. I will have to just compare 1 in psychiatric to 0 in psychiatric.
+
+```{r}
+
+#here is what the code might have looked like 
+#df_acq_separated <- df_acq_separated |>
+ # mutate(none_dys_psych = case_when(dyslexia == 0 & psychiatric == 0 ~ "neither", #neither dyslexia nor psychiatric disorders reported
+ # dyslexia == 1 & psychiatric == 0 ~ "dyslexia", #only dyslexia reported 
+ # dyslexia == 0 & psychiatric == 1 ~ "psychiatric"))
+
+correct_psychiatric <- df_acq_separated |>
+  group_by(psychiatric) |>
+  summarize(score = mean(correct, na.rm = TRUE))
+
+correct_psychiatric$psychiatric <- correct_psychiatric$psychiatric |>
+  factor(levels = c(0, 1), labels = c("No", "Yes")) #change to no and yes for clarity when graphing
+
+ggplot(correct_psychiatric, aes(x = as.factor(psychiatric), y = score, fill = as.factor(psychiatric))) +
+  geom_col() +
+  scale_fill_brewer(palette = "Pastel1", name = "Psychiatric Condition") + #switching up the colors again
+  labs(
+       x = NULL,
+       y = "Average Score") +
+  theme_minimal() 
+    # Improving readability of the x-axis labels
+```
+
+The average scores are `r signif(correct_psychiatric$score[2], 4)` for those who reported a having disorder, and `r signif(correct_psychiatric$score[1], 4)` for those who did not. This is a significant result. It should be noted that out of the 600,000+ participants, only `r sum(df_acq_separated$psychiatric == 1)` reported a psychiatric disorder. 
+
+I really would have liked to analyze some dyslexia-related data, but at least something significant was found. That's all I have to say about this one.
+
+## 5. Final Topic: Comparing English-Speaking Countries
+
+This one is pretty simple. I want to separate the "countries" column into multiple rows for each country. For all L2 English learners who have lived in one of the English-speaking countries included in the study (the UK, the US, Ireland, and Canada), I will investigate if any sizable difference in average score exists. 
+
+```{r}
+df_acq_eng_countries <- df_eng_acquisition |>
+  separate_rows(countries, sep = ",\\s*") |>
+  filter(L1_eng == 0)
+```
+
+I do think that in the first place, it's important to see if the sample size for a country like Ireland is significant enough to plot. This is easy enough to inline in markdown text. 
+
+For the four English-speaking countries, the results are `r sum(df_acq_eng_countries$countries == "United States")` respondents from the US, `r sum(df_acq_eng_countries$countries == "United Kingdom")` respondents from the UK, `r sum(df_acq_eng_countries$countries == "Canada")` respondents from Canada, and `r sum(df_acq_eng_countries$countries == "Ireland (Republic of)")` respondents from Ireland.
+
+Even though the number of Ireland residents is predictably low, I think around 5000 is plenty to establish a trend. Let's compare scores!
+
+```{r}
+eng_countries_scores <- df_acq_eng_countries |>
+  filter(countries %in% c("United States", "United Kingdom", "Canada", "Ireland (Republic of)")) |>
+  group_by(countries) |>
+  summarize(score = mean(correct, na.rm = TRUE)) |>
+  arrange(score)
+
+eng_countries_scores$countries[1] <- "Ireland" #so it doesn't say Ireland (Republic of) when I inline results
+
+```
+
+The results are as follows: 
+`r eng_countries_scores$countries[1]` is in last place, with a mean score of `r signif(eng_countries_scores$score[1], 3)`.
+`r eng_countries_scores$countries[2]` is in third, with a score of `r signif(eng_countries_scores$score[2], 3)`.
+`r eng_countries_scores$countries[3]` comes in second, with an average of `r signif(eng_countries_scores$score[3], 3)`, leaving, as the winner: `r eng_countries_scores$countries[4]`, with the best score, at...huh. `r signif(eng_countries_scores$score[4], 3)` percent.
+
+As it turns out, these four English-speaking countries seem to all do an equally great job fostering L2 English acquisition. The total deviation amount from lowest score to highest is less than 1 percent! This is good news. Well done, Canada! 
+
+Even though Ireland seems to have a larger gap between it and the other countries, the sample size was by far the lowest. This could also explain Canada's outcome being the best. The US beat the UK, and that is a good enough result for me!
+
+## Conclusion
+
+It was definitely fun to look for correlations and try my best to interpret some of the data. It is unfortunate that there were some instances (particularly with dyslexia) where something weird must have happened to the original .csv file. 
+
+One issue with this dataset is that there's not much context for what the assessment actually consisted of. I read what I could find about this study (there is a short paper), but it did not provide much clarity. We therefore have no real indication of grammaticality might have been judged. This is something that is not well-addressed in the provided data, and so it is possible that the methods used could have been controversial or unrepresentative in some way. 
+
+Still, getting to make my own visualizations for the data is exciting in that I might be able to represent patterns in a way that the original study did not think to try (though I am not convinced that I succeeded in that here). The goal of this project is representing both my continued growth with data visualization and analysis in R  and my reporting skills, and I hope I succeeded on those fronts. 
+
+Finally, I'd like to thank you for this class - it was a great introduction to R, and I have confidence that I would be able to apply this to linguistics problems now!
