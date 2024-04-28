@@ -1,12 +1,12 @@
 ---
-title: "hp2"
+title: "Homework Project 2"
 author: "Jesse LeBow"
 format:
   html:
     embed-resources: true
 ---
 
-# Homework Project 2
+
 
 
 ## The data
